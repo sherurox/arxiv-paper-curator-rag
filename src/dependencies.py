@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.config import Settings
 from src.db.interfaces.base import BaseDatabase
 from src.services.embeddings.jina_client import JinaEmbeddingsClient
+from src.services.ollama.client import OllamaClient
 from src.services.opensearch.client import OpenSearchClient
 
 
@@ -41,8 +42,14 @@ def get_embeddings_service(request: Request) -> JinaEmbeddingsClient:
     return request.app.state.embeddings_service
 
 
+def get_ollama_client(request: Request) -> OllamaClient:
+    """Get Ollama client from the request state."""
+    return request.app.state.ollama_client
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DatabaseDep = Annotated[BaseDatabase, Depends(get_database)]
 SessionDep = Annotated[Session, Depends(get_db_session)]
 OpenSearchDep = Annotated[OpenSearchClient, Depends(get_opensearch_client)]
 EmbeddingsDep = Annotated[JinaEmbeddingsClient, Depends(get_embeddings_service)]
+OllamaDep = Annotated[OllamaClient, Depends(get_ollama_client)]
