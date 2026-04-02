@@ -7,8 +7,10 @@ from fastapi import FastAPI
 from src.config import get_settings
 from src.db.factory import make_database
 from src.routers import papers, ping
+from src.routers.hybrid_search import router as hybrid_search_router
 from src.routers.search import router as search_router
 from src.services.arxiv.factory import make_arxiv_client
+from src.services.embeddings.factory import make_embeddings_service
 from src.services.opensearch.factory import make_opensearch_client
 from src.services.pdf_parser.factory import make_pdf_parser_service
 
@@ -57,10 +59,14 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("OpenSearch connection failed - search features will be limited")
 
+    # Initialize embeddings service
+    app.state.embeddings_service = make_embeddings_service(settings)
+    logger.info("Embeddings service initialized (Jina AI)")
+
     # Initialize services (kept for future endpoints and notebook demos)
     app.state.arxiv_client = make_arxiv_client()
     app.state.pdf_parser = make_pdf_parser_service()
-    logger.info("Services initialized: arXiv API client, PDF parser, OpenSearch")
+    logger.info("Services initialized: arXiv API client, PDF parser, OpenSearch, Embeddings")
 
     logger.info("API ready")
     yield
@@ -81,6 +87,7 @@ app = FastAPI(
 app.include_router(ping.router, prefix="/api/v1")
 app.include_router(papers.router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
+app.include_router(hybrid_search_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

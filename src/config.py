@@ -40,6 +40,23 @@ class PDFParserSettings(DefaultSettings):
     do_table_structure: bool = True
 
 
+class ChunkingSettings(DefaultSettings):
+    """Text chunking settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="CHUNKING__",
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="__",
+    )
+
+    chunk_size: int = 600  # Target words per chunk
+    overlap_size: int = 100  # Words to overlap between chunks
+    min_chunk_size: int = 100  # Minimum words for a valid chunk
+    section_based: bool = True  # Use section-based chunking when available
+
+
 class OpenSearchSettings(DefaultSettings):
     """OpenSearch client settings."""
 
@@ -79,8 +96,14 @@ class Settings(DefaultSettings):
     postgres_pool_size: int = 20
     postgres_max_overflow: int = 0
 
+    # Jina AI embeddings
+    jina_api_key: str = ""
+
     # OpenSearch configuration
     opensearch: OpenSearchSettings = Field(default_factory=OpenSearchSettings)
+
+    # Chunking configuration
+    chunking: ChunkingSettings = Field(default_factory=ChunkingSettings)
 
     # Ollama configuration (used in Week 1 notebook)
     ollama_host: str = "http://localhost:11434"
