@@ -40,6 +40,31 @@ class PDFParserSettings(DefaultSettings):
     do_table_structure: bool = True
 
 
+class OpenSearchSettings(DefaultSettings):
+    """OpenSearch client settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="OPENSEARCH__",
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="__",
+    )
+
+    host: str = "http://localhost:9200"
+    index_name: str = "arxiv-papers"
+    chunk_index_suffix: str = "chunks"  # Creates single hybrid index: {index_name}-{suffix}
+    max_text_size: int = 1000000
+
+    # Vector search settings (used in Week 5+)
+    vector_dimension: int = 1024
+    vector_space_type: str = "cosinesimil"
+
+    # Hybrid search settings (used in Week 5+)
+    rrf_pipeline_name: str = "hybrid-rrf-pipeline"
+    hybrid_search_size_multiplier: int = 2
+
+
 class Settings(DefaultSettings):
     """Application settings."""
 
@@ -55,7 +80,7 @@ class Settings(DefaultSettings):
     postgres_max_overflow: int = 0
 
     # OpenSearch configuration
-    opensearch_host: str = "http://localhost:9200"
+    opensearch: OpenSearchSettings = Field(default_factory=OpenSearchSettings)
 
     # Ollama configuration (used in Week 1 notebook)
     ollama_host: str = "http://localhost:11434"

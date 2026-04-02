@@ -13,6 +13,7 @@ from sqlalchemy import text
 from src.db.factory import make_database
 from src.services.arxiv.factory import make_arxiv_client
 from src.services.metadata_fetcher import make_metadata_fetcher
+from src.services.opensearch.factory import make_opensearch_client_fresh
 from src.services.pdf_parser.factory import make_pdf_parser_service
 
 logger = logging.getLogger(__name__)
@@ -177,40 +178,93 @@ def process_failed_pdfs(**context):
 
 def create_opensearch_placeholders(**context):
     """
-    Create placeholder entries for OpenSearch indexing.
+    Index papers into OpenSearch for BM25 keyword search (Week 3).
 
-    This is a Week 2 placeholder - in Week 3+ this will:
-    1. Get successfully stored papers
-    2. Create placeholder OpenSearch documents
-    3. Prepare for actual indexing pipeline
+    This task:
+    1. Gets successfully stored papers from the fetch task
+    2. Indexes them as text chunks into OpenSearch for BM25 search
     """
-    logger.info("Creating OpenSearch placeholders (Week 2)")
+    logger.info("Indexing papers into OpenSearch for BM25 search (Week 3)")
 
     try:
+        from src.models.paper import Paper
+
         fetch_results = context["task_instance"].xcom_pull(task_ids="fetch_daily_papers", key="fetch_results")
 
         if not fetch_results:
-            logger.warning("No fetch results available for OpenSearch placeholders")
-            return {"status": "skipped", "message": "No papers to process"}
+            logger.warning("No fetch results available for OpenSearch indexing")
+            return {"status": "skipped", "message": "No papers to index"}
 
         papers_stored = fetch_results.get("papers_stored", 0)
+        if papers_stored == 0:
+            logger.info("No papers were stored - skipping OpenSearch indexing")
+            return {"status": "skipped", "papers_indexed": 0}
 
-        logger.info(f"Creating placeholders for {papers_stored} papers")
+        _arxiv_client, _pdf_parser, database, _metadata_fetcher = get_cached_services()
+        opensearch_client = make_opensearch_client_fresh()
 
-        # Week 2: Just log what would be indexed
-        # Week 3+: Actually create OpenSearch documents
-        placeholder_results = {
-            "status": "placeholder",
-            "papers_ready_for_indexing": papers_stored,
-            "message": f"Week 2: {papers_stored} papers ready for future OpenSearch indexing",
+        with database.get_session() as session:
+            papers = (
+                session.query(Paper)
+                .order_by(Paper.created_at.desc())
+                .limit(papers_stored)
+                .all()
+            )
+
+            if not papers:
+                logger.info("No papers found in database for indexing")
+                return {"status": "skipped", "papers_indexed": 0}
+
+            indexed = 0
+            failed = 0
+
+            for paper in papers:
+                try:
+                    categories = paper.categories if isinstance(paper.categories, list) else (
+                        [paper.categories] if paper.categories else []
+                    )
+                    chunk_text = f"{paper.title}\n\n{paper.abstract or ''}"
+                    chunk_data = {
+                        "arxiv_id": paper.arxiv_id,
+                        "paper_id": str(paper.id),
+                        "chunk_index": 0,
+                        "chunk_text": chunk_text,
+                        "chunk_word_count": len(chunk_text.split()),
+                        "start_char": 0,
+                        "end_char": len(chunk_text),
+                        "title": paper.title,
+                        "authors": paper.authors or "",
+                        "abstract": paper.abstract or "",
+                        "categories": categories,
+                        "published_date": paper.published_date.isoformat() if paper.published_date else None,
+                    }
+
+                    opensearch_client.client.index(
+                        index=opensearch_client.index_name,
+                        body=chunk_data,
+                        refresh=True,
+                    )
+                    indexed += 1
+                    logger.info(f"Indexed paper: {paper.arxiv_id}")
+
+                except Exception as e:
+                    logger.error(f"Failed to index paper {paper.arxiv_id}: {e}")
+                    failed += 1
+
+        result = {
+            "status": "success",
+            "papers_indexed": indexed,
+            "papers_failed": failed,
+            "message": f"Week 3: {indexed} papers indexed into OpenSearch for BM25 search",
         }
 
-        logger.info(f"OpenSearch placeholders: {placeholder_results}")
+        logger.info(f"OpenSearch BM25 indexing complete: {result}")
+        context["task_instance"].xcom_push(key="opensearch_results", value=result)
 
-        return placeholder_results
+        return result
 
     except Exception as e:
-        error_msg = f"OpenSearch placeholder creation failed: {str(e)}"
+        error_msg = f"OpenSearch BM25 indexing failed: {str(e)}"
         logger.error(error_msg)
         raise Exception(error_msg)
 
@@ -248,7 +302,7 @@ def generate_daily_report(**context):
                 "failed_pdf_retries": failed_pdf_results.get("errors_logged", 0) if failed_pdf_results else 0,
             },
             "opensearch": {
-                "placeholders_created": opensearch_results.get("papers_ready_for_indexing", 0) if opensearch_results else 0,
+                "papers_indexed": opensearch_results.get("papers_indexed", 0) if opensearch_results else 0,
                 "status": opensearch_results.get("status", "unknown") if opensearch_results else "unknown",
             },
         }
@@ -261,7 +315,7 @@ def generate_daily_report(**context):
         logger.info(f"Papers stored: {report['papers']['stored']}")
         logger.info(f"Processing time: {report['processing']['processing_time_seconds']:.1f}s")
         logger.info(f"Errors encountered: {report['processing']['errors']}")
-        logger.info(f"OpenSearch placeholders: {report['opensearch']['placeholders_created']}")
+        logger.info(f"OpenSearch papers indexed: {report['opensearch']['papers_indexed']}")
         logger.info("=== END REPORT ===")
 
         return report
