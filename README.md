@@ -20,16 +20,6 @@
 
 ---
 
-> **📚 Course Attribution:** This project was built by following the
-> [Mother of AI Project — Production Agentic RAG Course](https://github.com/jamwithai/production-agentic-rag-course)
-> by [Shirin Khosravi Jam](https://www.linkedin.com/in/shirin-khosravi-jam/)
-> and [Shantanu Ladhwe](https://www.linkedin.com/in/shantanuladhwe/).
-> The system architecture, weekly progression, and tech stack decisions
-> come from their course. This repo is my hands-on implementation,
-> including my own code, notes, and learnings from completing all 7 weeks.
-
----
-
 ## 📖 Table of Contents
 
 - [The Problem](#-the-problem)
@@ -833,6 +823,16 @@ docker compose up --build -d
 | Langfuse tracing | **$0** — free tier |
 | Telegram bot | **$0** — free via BotFather |
 | **Total** | **$0** |
+
+---
+
+> **📚 Course Attribution:** This project was built by following the
+> [Mother of AI Project — Production Agentic RAG Course](https://github.com/jamwithai/production-agentic-rag-course)
+> by [Shirin Khosravi Jam](https://www.linkedin.com/in/shirin-khosravi-jam/)
+> and [Shantanu Ladhwe](https://www.linkedin.com/in/shantanuladhwe/).
+> The system architecture, weekly progression, and tech stack decisions
+> come from their course. This repo is my hands-on implementation,
+> including my own code, notes, and learnings from completing all 7 weeks.
 
 ---
 
