@@ -128,6 +128,22 @@ Complete when you can:
 
 <p align="center">
   <img src="static/week2_data_ingestion_flow.png" alt="Week 2 Data Ingestion Architecture" width="800">
+  <br><em>Week 2 — Data Ingestion Flow</em>
+</p>
+
+<p align="center">
+  <img src="static/week3_opensearch_flow.png" alt="Week 3 OpenSearch BM25" width="800">
+  <br><em>Week 3 — BM25 Keyword Search</em>
+</p>
+
+<p align="center">
+  <img src="static/week4_hybrid_opensearch.png" alt="Week 4 Hybrid Search" width="800">
+  <br><em>Week 4 — Hybrid Search Architecture</em>
+</p>
+
+<p align="center">
+  <img src="static/week5_complete_rag.png" alt="Week 5 Complete RAG" width="800">
+  <br><em>Week 5 — Complete RAG System</em>
 </p>
 
 **Data Pipeline Components:**
