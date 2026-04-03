@@ -11,7 +11,9 @@ from src.routers.ask import ask_router, stream_router
 from src.routers.hybrid_search import router as hybrid_search_router
 from src.routers.search import router as search_router
 from src.services.arxiv.factory import make_arxiv_client
+from src.services.cache.factory import make_cache_client
 from src.services.embeddings.factory import make_embeddings_service
+from src.services.langfuse.factory import make_langfuse_tracer
 from src.services.ollama.factory import make_ollama_client
 from src.services.opensearch.factory import make_opensearch_client
 from src.services.pdf_parser.factory import make_pdf_parser_service
@@ -69,6 +71,18 @@ async def lifespan(app: FastAPI):
     app.state.ollama_client = make_ollama_client()
     logger.info("Ollama client initialized")
 
+    # Initialize Langfuse tracer
+    app.state.langfuse_tracer = make_langfuse_tracer()
+    logger.info("Langfuse tracer initialized")
+
+    # Initialize Redis cache client (optional - API works without cache)
+    try:
+        app.state.cache_client = make_cache_client(settings)
+        logger.info("Cache client initialized")
+    except Exception as e:
+        logger.warning(f"Cache client initialization failed (caching disabled): {e}")
+        app.state.cache_client = None
+
     # Initialize services (kept for future endpoints and notebook demos)
     app.state.arxiv_client = make_arxiv_client()
     app.state.pdf_parser = make_pdf_parser_service()
@@ -78,6 +92,9 @@ async def lifespan(app: FastAPI):
     yield
 
     # Cleanup
+    langfuse_tracer = getattr(app.state, "langfuse_tracer", None)
+    if langfuse_tracer:
+        langfuse_tracer.shutdown()
     database.teardown()
     logger.info("API shutdown complete")
 

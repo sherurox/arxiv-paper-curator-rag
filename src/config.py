@@ -82,6 +82,49 @@ class OpenSearchSettings(DefaultSettings):
     hybrid_search_size_multiplier: int = 2
 
 
+class LangfuseSettings(DefaultSettings):
+    """Langfuse tracing settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="LANGFUSE__",
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="__",
+    )
+
+    public_key: str = ""
+    secret_key: str = ""
+    host: str = "http://localhost:3000"
+    enabled: bool = True
+    flush_at: int = 15
+    flush_interval: float = 1.0
+    max_retries: int = 3
+    timeout: int = 30
+    debug: bool = False
+
+
+class RedisSettings(DefaultSettings):
+    """Redis cache settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="REDIS__",
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="__",
+    )
+
+    host: str = "localhost"
+    port: int = 6379
+    password: str = ""
+    db: int = 0
+    decode_responses: bool = True
+    socket_timeout: int = 30
+    socket_connect_timeout: int = 30
+    ttl_hours: int = 6
+
+
 class Settings(DefaultSettings):
     """Application settings."""
 
@@ -116,6 +159,12 @@ class Settings(DefaultSettings):
 
     # PDF parser settings
     pdf_parser: PDFParserSettings = Field(default_factory=PDFParserSettings)
+
+    # Langfuse tracing
+    langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
+
+    # Redis caching
+    redis: RedisSettings = Field(default_factory=RedisSettings)
 
     @field_validator("ollama_models", mode="before")
     @classmethod
