@@ -850,6 +850,6 @@ MIT License — see [LICENSE](LICENSE) for details.
     <a href="https://github.com/sherurox/arxiv-paper-curator-rag">Repository</a>
   </p>
   <br>
-  <p>📚 Built by following the <a href="https://github.com/jamwithai/production-agentic-rag-course"><strong>Mother of AI Project — Production Agentic RAG Course</strong></a></p>
+  <p>📚 Inspired from the <a href="https://github.com/jamwithai/production-agentic-rag-course"><strong>Mother of AI Project — Production Agentic RAG Course</strong></a></p>
   <p><em>Course created by <a href="https://www.linkedin.com/in/shirin-khosravi-jam/">Shirin Khosravi Jam</a> & <a href="https://www.linkedin.com/in/shantanuladhwe/">Shantanu Ladhwe</a></em></p>
 </div>
