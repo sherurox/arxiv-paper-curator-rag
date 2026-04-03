@@ -26,7 +26,7 @@ services:
       - ENVIRONMENT=development
       - REDIS__HOST=redis
       - TELEGRAM__ENABLED=true
-      - TELEGRAM__BOT_TOKEN=8703854701:AAGZLykee4GtmqSF-AeblUafLJ8oNohbwzs
+      - TELEGRAM__BOT_TOKEN=${TELEGRAM__BOT_TOKEN}
     networks:
       - rag-network
 
