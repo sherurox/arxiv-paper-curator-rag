@@ -5,6 +5,7 @@ services:
     container_name: rag-api
     ports:
       - "8000:8000"
+      - "7861:7861"
     depends_on:
       postgres:
         condition: service_healthy

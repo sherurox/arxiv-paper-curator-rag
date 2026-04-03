@@ -111,15 +111,15 @@ def create_gradio_interface():
     """Create and configure the Gradio interface"""
 
     with gr.Blocks(
-        title="arXiv Paper Curator - RAG Chat",
+        title="🔬 arXiv Paper Curator - RAG Research Assistant",
         theme=gr.themes.Soft(),
     ) as interface:
         gr.Markdown(
             """
-            # 🔬 arXiv Paper Curator - RAG Chat
+            # 🔬 arXiv Paper Curator - RAG Research Assistant
 
-            Ask questions about machine learning and AI research papers from arXiv.
-            The system will search through indexed papers and provide answers with sources.
+            Query a curated knowledge base of arXiv CS.AI papers using hybrid semantic + keyword search,
+            powered by Jina AI embeddings and a local Ollama LLM. Answers are grounded in real paper excerpts.
             """
         )
 
@@ -164,7 +164,7 @@ def create_gradio_interface():
                     )
 
         response_output = gr.Markdown(
-            label="Answer", value="Ask a question to get started!", height=400, elem_classes=["response-markdown"]
+            label="Answer", value="Ask a question to get started!", min_height=300, elem_classes=["response-markdown"]
         )
 
         # Examples
@@ -203,6 +203,15 @@ def create_gradio_interface():
 
             **Categories**: cs.AI (Artificial Intelligence), cs.LG (Machine Learning), cs.CL (Computational Linguistics),
             cs.CV (Computer Vision), cs.NE (Neural Networks), stat.ML (Statistics - Machine Learning)
+            """
+        )
+
+        gr.HTML(
+            """
+            <div style="text-align: right; padding: 10px 20px; color: #888; font-size: 13px; border-top: 1px solid #333; margin-top: 20px;">
+              Made by <a href="https://github.com/sherurox" target="_blank" style="color: #4a9eff; text-decoration: none;">Shreyas Khandale</a> |
+              <a href="https://github.com/sherurox/arxiv-paper-curator-rag" target="_blank" style="color: #4a9eff; text-decoration: none;">GitHub Repo</a>
+            </div>
             """
         )
 
