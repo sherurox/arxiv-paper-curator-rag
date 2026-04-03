@@ -25,6 +25,8 @@ services:
       - POSTGRES_DATABASE_URL=postgresql+psycopg2://rag_user:rag_password@postgres:5432/rag_db
       - ENVIRONMENT=development
       - REDIS__HOST=redis
+      - TELEGRAM__ENABLED=true
+      - TELEGRAM__BOT_TOKEN=8703854701:AAGZLykee4GtmqSF-AeblUafLJ8oNohbwzs
     networks:
       - rag-network
 

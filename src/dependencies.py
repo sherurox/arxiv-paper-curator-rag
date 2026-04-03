@@ -1,10 +1,13 @@
 from functools import lru_cache
-from typing import Annotated, Generator
+from typing import Annotated, Generator, Optional
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
+
 from src.config import Settings
 from src.db.interfaces.base import BaseDatabase
+from src.services.agents.agentic_rag import AgenticRAGService
+from src.services.agents.factory import make_agentic_rag_service
 from src.services.cache.client import CacheClient
 from src.services.embeddings.jina_client import JinaEmbeddingsClient
 from src.services.langfuse.client import LangfuseTracer
@@ -54,9 +57,24 @@ def get_langfuse_tracer(request: Request) -> LangfuseTracer:
     return request.app.state.langfuse_tracer
 
 
-def get_cache_client(request: Request) -> CacheClient:
+def get_cache_client(request: Request) -> Optional[CacheClient]:
     """Get cache client from the request state (may be None if Redis is unavailable)."""
     return getattr(request.app.state, "cache_client", None)
+
+
+def get_agentic_rag_service(
+    opensearch: Annotated[OpenSearchClient, Depends(get_opensearch_client)],
+    ollama: Annotated[OllamaClient, Depends(get_ollama_client)],
+    embeddings: Annotated[JinaEmbeddingsClient, Depends(get_embeddings_service)],
+    langfuse: Annotated[LangfuseTracer, Depends(get_langfuse_tracer)],
+) -> AgenticRAGService:
+    """Create AgenticRAGService on-demand via dependency injection."""
+    return make_agentic_rag_service(
+        opensearch_client=opensearch,
+        ollama_client=ollama,
+        embeddings_client=embeddings,
+        langfuse_tracer=langfuse,
+    )
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -66,4 +84,5 @@ OpenSearchDep = Annotated[OpenSearchClient, Depends(get_opensearch_client)]
 EmbeddingsDep = Annotated[JinaEmbeddingsClient, Depends(get_embeddings_service)]
 OllamaDep = Annotated[OllamaClient, Depends(get_ollama_client)]
 LangfuseDep = Annotated[LangfuseTracer, Depends(get_langfuse_tracer)]
-CacheDep = Annotated[CacheClient, Depends(get_cache_client)]
+CacheDep = Annotated[Optional[CacheClient], Depends(get_cache_client)]
+AgenticRAGDep = Annotated[AgenticRAGService, Depends(get_agentic_rag_service)]

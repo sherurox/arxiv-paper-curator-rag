@@ -125,6 +125,21 @@ class RedisSettings(DefaultSettings):
     ttl_hours: int = 6
 
 
+class TelegramSettings(DefaultSettings):
+    """Telegram bot settings (Week 7)."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="TELEGRAM__",
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="__",
+    )
+
+    bot_token: str = ""
+    enabled: bool = False
+
+
 class Settings(DefaultSettings):
     """Application settings."""
 
@@ -165,6 +180,9 @@ class Settings(DefaultSettings):
 
     # Redis caching
     redis: RedisSettings = Field(default_factory=RedisSettings)
+
+    # Telegram bot (Week 7)
+    telegram: TelegramSettings = Field(default_factory=TelegramSettings)
 
     @field_validator("ollama_models", mode="before")
     @classmethod

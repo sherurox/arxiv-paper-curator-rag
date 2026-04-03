@@ -4,12 +4,14 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+
 from src.config import get_settings
 from src.db.factory import make_database
 from src.routers import papers, ping
 from src.routers.ask import ask_router, stream_router
 from src.routers.hybrid_search import router as hybrid_search_router
 from src.routers.search import router as search_router
+from src.routers.agentic_ask import router as agentic_ask_router
 from src.services.arxiv.factory import make_arxiv_client
 from src.services.cache.factory import make_cache_client
 from src.services.embeddings.factory import make_embeddings_service
@@ -17,6 +19,7 @@ from src.services.langfuse.factory import make_langfuse_tracer
 from src.services.ollama.factory import make_ollama_client
 from src.services.opensearch.factory import make_opensearch_client
 from src.services.pdf_parser.factory import make_pdf_parser_service
+from src.services.telegram.factory import make_telegram_service
 
 # Setup logging
 logging.basicConfig(
@@ -88,10 +91,36 @@ async def lifespan(app: FastAPI):
     app.state.pdf_parser = make_pdf_parser_service()
     logger.info("Services initialized: arXiv API client, PDF parser, OpenSearch, Embeddings, Ollama")
 
+    # Initialize Telegram bot (Week 7 - optional)
+    telegram_service = make_telegram_service(
+        opensearch_client=app.state.opensearch_client,
+        embeddings_client=app.state.embeddings_service,
+        ollama_client=app.state.ollama_client,
+        cache_client=app.state.cache_client,
+        langfuse_tracer=app.state.langfuse_tracer,
+    )
+
+    if telegram_service:
+        app.state.telegram_service = telegram_service
+        try:
+            await telegram_service.start()
+            logger.info("Telegram bot started")
+        except Exception as e:
+            logger.warning(f"Telegram bot failed to start: {e}")
+    else:
+        logger.info("Telegram bot disabled (set TELEGRAM__ENABLED=true and TELEGRAM__BOT_TOKEN to enable)")
+
     logger.info("API ready")
     yield
 
     # Cleanup
+    telegram = getattr(app.state, "telegram_service", None)
+    if telegram:
+        try:
+            await telegram.stop()
+        except Exception as e:
+            logger.warning(f"Error stopping Telegram bot: {e}")
+
     langfuse_tracer = getattr(app.state, "langfuse_tracer", None)
     if langfuse_tracer:
         langfuse_tracer.shutdown()
@@ -113,6 +142,7 @@ app.include_router(search_router, prefix="/api/v1")
 app.include_router(hybrid_search_router, prefix="/api/v1")
 app.include_router(ask_router, prefix="/api/v1")
 app.include_router(stream_router, prefix="/api/v1")
+app.include_router(agentic_ask_router)  # Already has /api/v1 prefix
 
 
 if __name__ == "__main__":
