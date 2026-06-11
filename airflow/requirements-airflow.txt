@@ -9,3 +9,5 @@ docling>=2.0.0
 
 # Database drivers
 psycopg2-binary>=2.9.0
+opensearch-py>=2.0.0
+
