@@ -25,6 +25,8 @@ dependencies = [
     "langchain-community>=0.3.0",
     "langchain-ollama>=0.3.0",
     "python-telegram-bot>=21.0,<22.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
 ]
 readme = "README.md"
 
@@ -62,6 +64,14 @@ asyncio_default_fixture_loop_scope = "function"
 env_files = ".env.test"
 
 [tool.mypy]
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 explicit_package_bases = true
 ignore_errors = true
 
