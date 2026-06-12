@@ -25,20 +25,20 @@
 
 - [The Problem](#-the-problem)
 - [My Approach](#-my-approach)
-- [System Architecture](#-system-architecture)
+- [System Architecture](#%EF%B8%8F-system-architecture)
 - [Live Demo](#-live-demo)
 - [API Endpoints](#-api-endpoints)
 - [Automated Ingestion Pipeline](#-automated-ingestion-pipeline)
-- [Tech Stack](#-tech-stack)
+- [Tech Stack](#%EF%B8%8F-tech-stack)
 - [Build Journey — Week by Week](#-build-journey--week-by-week)
 - [Quick Start](#-quick-start)
 - [Telegram Bot Setup Guide](#-telegram-bot-setup-guide)
 - [AWS Cloud Deployment](#%EF%B8%8F-aws-cloud-deployment)
 - [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
+- [Configuration](#%EF%B8%8F-configuration)
 - [Performance](#-performance)
 - [Development Guide](#-development-guide)
-- [Troubleshooting](#-troubleshooting)
+- [Troubleshooting](#%EF%B8%8F-troubleshooting)
 
 ---
 
@@ -451,6 +451,27 @@ Apache Airflow runs a **daily DAG** (`arxiv_paper_ingestion`) on weekdays:
 
 ---
 
+### Cloud Phase: AWS EC2 Deployment ✅
+
+**Goal:** Take the validated local stack and serve it live from real cloud infrastructure — at zero out-of-pocket cost.
+
+**What I implemented:**
+- EC2 m7i-flex.large provisioned **100% via AWS CLI** — key pair, least-privilege security group, latest official Ubuntu 24.04 AMI resolved through the SSM public parameter
+- Server prepared with Docker, `vm.max_map_count=262144` (OpenSearch kernel requirement), and a 4GB swapfile for OOM protection on 8GB RAM
+- Diagnosed `no space left on device` build failures → root-caused to ~9GB of CUDA torch wheels on a CPU-only instance → pinned CPU-only wheels via uv (**8GB image reduction, 174s build**)
+- EBS volume grown live 30GB → 50GB (`modify-volume` + `growpart` + `resize2fs`, zero downtime)
+- Restart policies + headless Airflow triggering; both RAG pipelines validated over the public internet
+- Zero-cost operating model: Free Plan credits, stop/start workflow, no Elastic IP, $15 budget alert
+
+**Key learnings:**
+- Default PyPI torch ships the CUDA toolchain — always pin CPU wheels for CPU-only deployment targets
+- OpenSearch refuses to start without the mmap kernel limit raised — the #1 cloud deployment failure
+- Dev/prod parity pays off: the identical compose stack ran on EC2 with zero code changes
+
+*Full details in the [AWS Cloud Deployment](#%EF%B8%8F-aws-cloud-deployment) section.*
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -828,6 +849,8 @@ OPENSEARCH__VECTOR_DIMENSION=1024
 # ── Ollama ───────────────────────────────────────────
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=llama3.2:1b
+# IMPORTANT: OLLAMA_MODELS is a List[str] — must be JSON format, or Pydantic fails at startup
+OLLAMA_MODELS=["llama3.2:1b"]
 OLLAMA_TIMEOUT=300
 
 # ── arXiv API ────────────────────────────────────────
@@ -932,6 +955,10 @@ uv run pytest --cov=src --cov-report=html
 | OpenSearch unhealthy | Increase Docker Desktop memory to 4GB+ |
 | Agentic endpoint slow | Expected — multiple LLM calls (guardrail + grade + generate). Use `/ask` for cached fast responses |
 | Telegram conflict error | Ensure `--workers 1` in Dockerfile. Run `deleteWebhook` API call then restart |
+| `error parsing value for field "ollama_models"` | `OLLAMA_MODELS` is a `List[str]` — env value must be JSON: `OLLAMA_MODELS=["llama3.2:1b"]`. Pydantic JSON-parses complex types before validators run |
+| Langfuse tracing silently disabled | Env names need the **double underscore** nested prefix: `LANGFUSE__PUBLIC_KEY`, `LANGFUSE__SECRET_KEY`, `LANGFUSE__HOST`. Single-underscore names are ignored |
+| `exec /entrypoint.sh: no such file or directory` (Airflow) | CRLF line endings from a Windows clone broke the shebang. Fixed permanently via `.gitattributes` (`*.sh text eol=lf`) — re-pull or convert the file to LF and rebuild |
+| `container name "/rag-X" is already in use` | Leftover containers from a failed start: `docker rm -f $(docker ps -aq)` then `docker compose up -d` |
 
 **Full reset:**
 ```bash
