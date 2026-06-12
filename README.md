@@ -1,6 +1,6 @@
 # 🔬 arXiv Paper Curator — Production RAG System
 
-> A production-grade **Retrieval-Augmented Generation (RAG)** system that automatically ingests arXiv CS.AI research papers, indexes them with hybrid search, and answers research questions using a local LLM — implemented week by week following production engineering best practices.
+> A production-grade **Retrieval-Augmented Generation (RAG)** system that automatically ingests arXiv CS.AI research papers, indexes them with hybrid search, and answers research questions using a local LLM — implemented week by week following production engineering best practices, and **deployed live on AWS EC2 at zero cost**.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.12+-blue.svg" alt="Python">
@@ -11,7 +11,8 @@
   <img src="https://img.shields.io/badge/Embeddings-Jina%20AI%201024dim-red.svg" alt="Embeddings">
   <img src="https://img.shields.io/badge/LangGraph-Agentic%20RAG-ff69b4.svg" alt="LangGraph">
   <img src="https://img.shields.io/badge/Telegram-Bot%20Integrated-26A5E4.svg" alt="Telegram">
-  <img src="https://img.shields.io/badge/Status-Week%207%20Complete-brightgreen.svg" alt="Status">
+  <img src="https://img.shields.io/badge/AWS-EC2%20Deployed-FF9900.svg" alt="AWS">
+  <img src="https://img.shields.io/badge/Status-Week%207%20%2B%20Cloud%20Complete-brightgreen.svg" alt="Status">
 </p>
 
 <p align="center">
@@ -32,6 +33,7 @@
 - [Build Journey — Week by Week](#-build-journey--week-by-week)
 - [Quick Start](#-quick-start)
 - [Telegram Bot Setup Guide](#-telegram-bot-setup-guide)
+- [AWS Cloud Deployment](#%EF%B8%8F-aws-cloud-deployment)
 - [Project Structure](#-project-structure)
 - [Configuration](#-configuration)
 - [Performance](#-performance)
@@ -70,6 +72,7 @@ I implemented a complete **production-grade RAG pipeline** week by week, followi
 | **Agentic RAG** | LangGraph workflow with guardrails, grading, and adaptive retrieval |
 | **Mobile Access** | Telegram bot for conversational AI on any device |
 | **UI** | Gradio web interface for natural language Q&A |
+| **Cloud Deployment** | Full stack live on AWS EC2 — CLI-provisioned, credit-funded, $0 out of pocket |
 
 ---
 
@@ -294,6 +297,7 @@ Apache Airflow runs a **daily DAG** (`arxiv_paper_ingestion`) on weekdays:
 | **Bot Integration** | python-telegram-bot | 21.x | Conversational AI access on mobile |
 | **UI** | Gradio | 4.0+ | Rapid ML interface with streaming support |
 | **Containerization** | Docker Compose | Latest | Full stack orchestration, service networking |
+| **Cloud Hosting** | AWS EC2 | m7i-flex.large | Public deployment — Ubuntu 24.04, 50GB gp3, CLI-provisioned |
 | **Package Manager** | uv | Latest | 10-100x faster than pip, lockfile support |
 | **Code Quality** | Ruff + MyPy | Latest | Fast linting, static type checking |
 
@@ -600,6 +604,128 @@ Open Telegram and search for your bot username (the one you chose in Step 1). Th
 
 ---
 
+## ☁️ AWS Cloud Deployment
+
+The complete stack runs live on **AWS EC2**, publicly serving all 10 REST endpoints — provisioned entirely from the command line and funded by AWS Free Plan credits (**$0 out of pocket**).
+
+### Deployment Architecture
+
+| Component | Choice | Why |
+|---|---|---|
+| **Instance** | m7i-flex.large (2 vCPU, 8GB RAM) | Free-tier eligible on the new AWS Free Plan |
+| **OS** | Ubuntu Server 24.04 LTS | Plain AMI — no licensed marketplace images |
+| **Storage** | 50GB gp3 EBS | Grown live from 30GB after diagnosing build exhaustion |
+| **Memory headroom** | 4GB swapfile | Prevents OOM when OpenSearch + Ollama + API start together |
+| **Networking** | Security group, no Elastic IP | Admin ports (22, 8080) restricted to my IP; API (8000) and Gradio (7861) public; skipping the Elastic IP avoids idle charges |
+| **Services on EC2** | postgres, opensearch, ollama, redis, api, airflow | OpenSearch Dashboards excluded to save ~500MB RAM |
+
+### Provisioned 100% via AWS CLI
+
+No console clicking — the key pair, security group, rules, and instance are all created from the terminal:
+
+```powershell
+# Security group + rules
+$sgid = aws ec2 create-security-group --group-name arxiv-rag-sg --description "arXiv RAG stack" --query 'GroupId' --output text
+aws ec2 authorize-security-group-ingress --group-id $sgid --protocol tcp --port 22 --cidr "$myip/32"
+aws ec2 authorize-security-group-ingress --group-id $sgid --protocol tcp --port 8000 --cidr 0.0.0.0/0
+
+# Latest plain Ubuntu 24.04 AMI via SSM parameter (never a marketplace AMI)
+$ami = aws ssm get-parameters --names /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id --query 'Parameters[0].Value' --output text
+
+# Launch
+aws ec2 run-instances --image-id $ami --instance-type m7i-flex.large --key-name arxiv-rag-key --security-group-ids $sgid ...
+```
+
+### Server Preparation
+
+```bash
+# Docker + Compose
+curl -fsSL https://get.docker.com | sudo sh
+
+# OpenSearch kernel requirement (most common deployment failure without it)
+sudo sysctl -w vm.max_map_count=262144
+echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+
+# 4GB swap — essential on 8GB RAM
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+```
+
+### Key Engineering Fix — CPU-Only PyTorch (8GB Image Reduction)
+
+The first cloud builds failed with `no space left on device`. Root cause: **torch resolves to the CUDA build by default**, pulling ~9GB of NVIDIA libraries (cublas 567MB, cudnn 674MB, nccl 307MB, triton 148MB...) — pure dead weight on a CPU-only instance, inflating the API image to ~11GB.
+
+Fix: pin torch to PyTorch's CPU-only wheel index in `pyproject.toml`:
+
+```toml
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+```
+
+Result: 14 NVIDIA packages + triton removed from `uv.lock`, torch resolves to `2.12.0+cpu`, the image shrank by ~8GB, and the cloud build completed in **174 seconds**. Local builds got faster too.
+
+### Production Validation
+
+Both pipelines validated **over the public internet**:
+
+```bash
+# Health
+curl http://<EC2_PUBLIC_IP>:8000/api/v1/health
+# → {"status":"ok", "services":{"database":"healthy","ollama":"healthy"}}
+
+# Agentic RAG — adaptive retry loop fired live in production:
+# reasoning_steps: [Validated query scope (75/100), Retrieved documents (2 attempts),
+#                   Graded documents, Rewritten query for better results, Generated answer]
+curl -X POST http://<EC2_PUBLIC_IP>:8000/api/v1/ask-agentic \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the challenges in reinforcement learning?"}'
+```
+
+Paper ingestion runs on the server via the same Airflow DAG, triggered headlessly:
+
+```bash
+docker compose exec airflow airflow dags unpause arxiv_paper_ingestion
+docker compose exec airflow airflow dags trigger arxiv_paper_ingestion
+```
+
+### Zero-Cost Operating Model
+
+| Practice | Effect |
+|---|---|
+| AWS Free Plan ($100 signup + $100 onboarding credits) | All usage drawn from credits — card never charged |
+| `aws ec2 stop-instances` when not demoing | Compute billing pauses; only EBS storage draws credits |
+| `docker update --restart unless-stopped $(docker ps -q)` | Containers auto-start on instance start — demo-ready in ~3 minutes |
+| No Elastic IP | Avoids ~$3.60/month idle charge; IP is fetched fresh per demo session |
+| $15/month budget alert | Safety net against surprises |
+
+```powershell
+# Demo workflow — start, get IP, demo, stop
+aws ec2 start-instances --instance-ids <INSTANCE_ID>
+aws ec2 wait instance-running --instance-ids <INSTANCE_ID>
+aws ec2 describe-instances --instance-ids <INSTANCE_ID> --query 'Reservations[0].Instances[0].PublicIpAddress' --output text
+# ... demo at the returned IP ...
+aws ec2 stop-instances --instance-ids <INSTANCE_ID>
+```
+
+### Cloud Troubleshooting Reference
+
+| Problem | Root Cause | Fix |
+|---|---|---|
+| OpenSearch exits on startup | `vm.max_map_count` too low | `sysctl -w vm.max_map_count=262144` (persist in sysctl.conf) |
+| `no space left on device` during build | CUDA torch wheels on CPU instance | CPU-only torch index pin + `docker builder prune -af` |
+| `exec /entrypoint.sh: no such file or directory` | CRLF line endings from a Windows clone | `.gitattributes` with `*.sh text eol=lf` |
+| OOM with all services starting | 8GB RAM ceiling | 4GB swapfile + skip OpenSearch Dashboards |
+| SSH `Permission denied (publickey)` on Windows | .pem permissions too open | `icacls` — remove inheritance and non-owner ACEs |
+| IP changed after stop/start | No Elastic IP (by design) | `describe-instances` to fetch the current IP |
+
+---
+
 ## 📂 Project Structure
 
 ```
@@ -762,6 +888,8 @@ TELEGRAM__BOT_TOKEN=
 | PDF parse success rate | 80-90% |
 | Embedding dimensions | 1024 (Jina v3) |
 | arXiv fetch rate | ~20 papers/min |
+| Cloud API image build (CPU torch) | 174s on m7i-flex.large |
+| Cloud demo cold start | ~3 min (instance start → all services healthy) |
 
 ---
 
@@ -822,6 +950,7 @@ docker compose up --build -d
 | LLM inference (Ollama) | **$0** — local CPU/GPU |
 | Langfuse tracing | **$0** — free tier |
 | Telegram bot | **$0** — free via BotFather |
+| AWS EC2 deployment | **$0 out of pocket** — Free Plan credits + stop/start discipline |
 | **Total** | **$0** |
 
 ---
