@@ -373,7 +373,7 @@ Apache Airflow runs a **daily DAG** (`arxiv_paper_ingestion`) on weekdays:
 - `TextChunker` — section-aware chunking (600 words target, 100-word overlap)
 - `JinaEmbeddingsClient` — async Jina AI client for 1024-dimensional embeddings
 - `HybridIndexingService` — chunk → embed → OpenSearch KNN index pipeline
-- Manual RRF fusion: `score = Σ 1/(k + rank)` where k=60
+- RRF fusion via OpenSearch's `hybrid-rrf-pipeline` — combines BM25 + KNN rankings: `score = Σ 1/(k + rank)` where k=60
 - `POST /api/v1/hybrid-search/` — BM25, vector, or hybrid mode via single endpoint
 
 **Key learnings:**
